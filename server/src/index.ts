@@ -20,7 +20,14 @@ const port = process.env.PORT || 3001
 // 미들웨어 설정
 app.use(cors())
 app.use(express.json())
-app.use(express.static(path.join(__dirname, '../../client/dist')))
+
+// 정적 파일 제공 설정
+app.use(express.static(path.join(__dirname, 'public')));
+
+// 모든 경로에서 index.html 제공
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
 
 // 파일 업로드 설정
 const storage = multer.memoryStorage()
