@@ -2,7 +2,6 @@ import express from 'express'
 import type { Request, Response } from 'express'
 import cors from 'cors'
 import multer from 'multer'
-import type { Multer } from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pdfParse from 'pdf-parse'
@@ -10,12 +9,12 @@ import OpenAI from 'openai'
 import dotenv from 'dotenv'
 
 // 타입 정의
-type ExtractRequest = Request & {
-  file?: multer.File;
+interface FileRequest extends Request {
+  file?: Express.Multer.File;
   body: {
     fields: string;
   };
-};
+}
 
 // OpenAI 설정
 dotenv.config();
@@ -142,7 +141,7 @@ ${text}`
 }
 
 // API 엔드포인트 수정
-app.post('/api/extract', upload.single('file'), async (req: ExtractRequest, res: Response) => {
+app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
