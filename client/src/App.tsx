@@ -801,7 +801,7 @@ const App: React.FC = () => {
               borderRadius: '4px'
             }}>
               <h3 style={{ marginBottom: '15px' }}>{fileName}</h3>
-              {result && renderTable(result)}
+              {result && renderTable(safeStringify(result))}
             </div>
           ))}
         </div>
