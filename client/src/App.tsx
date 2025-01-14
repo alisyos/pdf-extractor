@@ -375,15 +375,25 @@ const App: React.FC = () => {
     </div>
   )
 
-  const handleTemplateDownload = (data: any) => {
-    if (typeof data === 'object' && data.content) {
-      handleDownloadTemplate(data as Template);
+  const handleTemplateDownload = (template: Template) => {
+    if (template && template.content) {
+      downloadFile(template.content);
     }
   };
 
-  const handleResultDownload = (data: any) => {
-    if (typeof data === 'object' && data.content) {
-      handleDownloadResult(data as Result);
+  const handleResultDownload = (result: Result) => {
+    if (result && result.content) {
+      downloadFile(result.content);
+    }
+  };
+
+  const handleDownload = (data: unknown, type: 'template' | 'result') => {
+    if (typeof data === 'object' && data !== null) {
+      if (type === 'template' && 'content' in data) {
+        handleTemplateDownload(data as Template);
+      } else if (type === 'result' && 'content' in data) {
+        handleResultDownload(data as Result);
+      }
     }
   };
 
