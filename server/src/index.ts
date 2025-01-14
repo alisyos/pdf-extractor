@@ -1,4 +1,5 @@
-import express, { Request, Response } from 'express'
+import express from 'express'
+import type { Request, Response } from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import path from 'path'
@@ -6,31 +7,41 @@ import fs from 'fs'
 import pdfParse from 'pdf-parse'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
-import { Express as ExpressType } from 'express'
 
-// 환경변수 설정
-dotenv.config()
+// 타입 정의
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  buffer: Buffer;
+  size: number;
+}
 
-const app: ExpressType = express()
-const port = process.env.PORT || 3001
-
-// 미들웨어 설정
-app.use(cors())
-app.use(express.json())
-app.use(express.static(path.join(__dirname, '../../client/dist')))
-
-// 파일 업로드 설정
-const storage = multer.memoryStorage()
-const upload = multer({ storage: storage })
-
-if (!process.env.OPENAI_API_KEY) {
-  throw new Error('OPENAI_API_KEY is not set in environment variables')
+interface ExtractRequest extends Request {
+  file?: MulterFile;
+  body: {
+    fields: string;
+  };
 }
 
 // OpenAI 설정
+dotenv.config();
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
-})
+});
+
+const app = express();
+const port = process.env.PORT || 3001;
+
+// 미들웨어 설정
+app.use(cors());
+app.use(express.json());
+app.use(express.static(path.join(__dirname, '../../client/dist')));
+
+// 파일 업로드 설정
+const storage = multer.memoryStorage();
+const upload = multer({ storage: storage });
 
 // PDF 텍스트 추출 함수
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
@@ -135,14 +146,6 @@ ${text}`
   } catch (error) {
     console.error('OpenAI API 에러:', error);
     throw new Error('OpenAI API 호출 중 오류가 발생했습니다.');
-  }
-}
-
-// 타입 정의
-interface ExtractRequest extends Request {
-  file?: Express.Multer.File
-  body: {
-    fields: string
   }
 }
 
