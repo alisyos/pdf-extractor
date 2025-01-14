@@ -6,25 +6,22 @@ import fs from 'fs'
 import pdfParse from 'pdf-parse'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
+import { Express as ExpressType } from 'express'
 
 // 환경변수 설정
 dotenv.config()
 
-const app = express()
-const port = process.env.PORT || 3000
+const app: ExpressType = express()
+const port = process.env.PORT || 3001
 
 // 미들웨어 설정
 app.use(cors())
 app.use(express.json())
+app.use(express.static(path.join(__dirname, '../../client/dist')))
 
 // 파일 업로드 설정
 const storage = multer.memoryStorage()
-const upload = multer({ 
-  storage,
-  limits: {
-    fileSize: 10 * 1024 * 1024 // 10MB 제한
-  }
-})
+const upload = multer({ storage: storage })
 
 if (!process.env.OPENAI_API_KEY) {
   throw new Error('OPENAI_API_KEY is not set in environment variables')
@@ -145,7 +142,7 @@ ${text}`
 interface ExtractRequest extends Request {
   file?: Express.Multer.File
   body: {
-    fields?: string
+    fields: string
   }
 }
 
