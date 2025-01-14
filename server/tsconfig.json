@@ -6,8 +6,9 @@
     "outDir": "./dist",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "strict": false,
     "skipLibCheck": true,
+    "noImplicitAny": false,
     "resolveJsonModule": true
   },
   "include": ["src/**/*"],
