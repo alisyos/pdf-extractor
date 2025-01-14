@@ -49,9 +49,9 @@ const App: React.FC = () => {
   const [extractedResult, setExtractedResult] = useState<Result | null>(null)
 
   // 유틸리티 함수들
-  const downloadFile = (content: string) => {
+  const downloadFile = (content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    saveAs(blob, 'download.txt');
+    saveAs(blob, filename);
   };
 
   const createTemplate = (id: string, name: string, fields: Field[]): Template => {
@@ -66,32 +66,30 @@ const App: React.FC = () => {
   // 다운로드 핸들러 함수들
   const handleTemplateDownload = () => {
     if (selectedTemplate) {
-      const content = typeof selectedTemplate === 'string' 
-        ? selectedTemplate 
-        : JSON.stringify(selectedTemplate || '');
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      saveAs(blob, 'template.txt');
+      const content = JSON.stringify(selectedTemplate);
+      downloadFile(content, 'template.txt');
     }
   };
 
   const handleResultDownload = () => {
     if (extractedResult) {
-      const content = typeof extractedResult === 'string' 
-        ? extractedResult 
-        : JSON.stringify(extractedResult || '');
-      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-      saveAs(blob, 'result.txt');
+      const content = JSON.stringify(extractedResult);
+      downloadFile(content, 'result.txt');
     }
   };
 
-  // 703번째 줄과 766번째 줄의 unknown 타입 처리
-  const handleDownload = (data: unknown, type: 'template' | 'result') => {
-    if (typeof data === 'object' && data !== null) {
-      if (type === 'template' && 'content' in data) {
-        handleTemplateDownload(data as Template);
-      } else if (type === 'result' && 'content' in data) {
-        handleResultDownload(data as Result);
-      }
+  // 735번째 줄과 798번째 줄의 unknown 타입 처리
+  const handleTemplateAction = (data: any) => {
+    if (data && typeof data === 'object') {
+      const content = JSON.stringify(data);
+      downloadFile(content, 'template.txt');
+    }
+  };
+
+  const handleResultAction = (data: any) => {
+    if (data && typeof data === 'object') {
+      const content = JSON.stringify(data);
+      downloadFile(content, 'result.txt');
     }
   };
 
