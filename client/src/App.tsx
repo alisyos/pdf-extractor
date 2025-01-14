@@ -31,6 +31,9 @@ interface Result {
   content: string;
 }
 
+// API URL을 상대 경로로 설정
+const API_URL = '/api/extract';
+
 const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([])
   const [description, setDescription] = useState('')
@@ -183,7 +186,7 @@ const App: React.FC = () => {
         formData.append('fields', JSON.stringify(fields.filter(f => f.title && f.description)))
 
         try {
-          const response = await fetch('http://localhost:3000/api/extract', {
+          const response = await fetch(API_URL, {
             method: 'POST',
             body: formData,
           })
