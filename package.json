@@ -2,13 +2,7 @@
   "name": "pdf-extractor",
   "version": "1.0.0",
   "scripts": {
-    "install-all": "npm run install-client && npm run install-server",
-    "install-client": "cd client && npm install",
-    "install-server": "cd server && npm install",
-    "build-all": "npm run build-client && npm run build-server && npm run copy-client",
-    "build-client": "cd client && npm run build",
-    "build-server": "cd server && npm run build",
-    "copy-client": "cp -r client/dist server/dist/public",
+    "build": "cd client && npm install && npm run build && cd ../server && npm install && npm run build && mkdir -p dist/public && cp -r ../client/dist/* dist/public/",
     "start": "cd server && npm start"
   }
 }
