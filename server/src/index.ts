@@ -2,9 +2,11 @@ import express from 'express'
 import cors from 'cors'
 import multer from 'multer'
 import path from 'path'
-import pdfParse from 'pdf-parse'
+import PDFParser from 'pdf2json'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
+import { promisify } from 'util'
+import fs from 'fs'
 
 // 환경변수 설정
 dotenv.config()
@@ -36,6 +38,30 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB 제한
 })
 
+// PDF 파싱 함수
+const parsePDF = async (buffer: Buffer): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const pdfParser = new PDFParser();
+
+    pdfParser.on('pdfParser_dataReady', (pdfData) => {
+      try {
+        const text = decodeURIComponent(pdfData.Pages.map(page => 
+          page.Texts.map(text => text.R.map(r => r.T).join(' ')).join(' ')
+        ).join('\n'));
+        resolve(text);
+      } catch (error) {
+        reject(error);
+      }
+    });
+
+    pdfParser.on('pdfParser_dataError', (error) => {
+      reject(error);
+    });
+
+    pdfParser.parseBuffer(buffer);
+  });
+};
+
 // API 엔드포인트
 app.post('/api/extract', upload.single('file'), async (req, res) => {
   console.log('=== PDF Extraction Request ===');
@@ -50,31 +76,20 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
       });
     }
 
-    console.log('File details:', {
+    console.log('File received:', {
       name: req.file.originalname,
       size: req.file.size,
-      type: req.file.mimetype,
-      buffer: req.file.buffer ? 'Buffer exists' : 'No buffer'
+      type: req.file.mimetype
     });
 
     try {
-      // PDF 파싱 시도
+      // PDF 파싱
       console.log('Starting PDF parsing...');
-      const pdfBuffer = req.file.buffer;
-      
-      if (!pdfBuffer || pdfBuffer.length === 0) {
-        throw new Error('PDF buffer is empty');
-      }
+      const text = await parsePDF(req.file.buffer);
+      console.log('PDF parsed successfully, text length:', text.length);
 
-      const pdfData = await pdfParse(pdfBuffer);
-      console.log('PDF parsing result:', {
-        pageCount: pdfData.numpages,
-        textLength: pdfData.text?.length || 0,
-        info: pdfData.info
-      });
-
-      if (!pdfData.text || pdfData.text.length === 0) {
-        throw new Error('Parsed PDF text is empty');
+      if (!text || text.length === 0) {
+        throw new Error('PDF text is empty');
       }
 
       // OpenAI API 호출
@@ -88,27 +103,24 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
           },
           {
             role: "user",
-            content: `Please extract key information from this text: ${pdfData.text}`
+            content: `Please extract key information from this text: ${text}`
           }
-        ],
-        temperature: 0.7,
-        max_tokens: 1000
+        ]
       });
 
-      console.log('OpenAI API response received');
+      console.log('OpenAI API call successful');
 
       return res.json({ 
         success: true,
-        text: pdfData.text.substring(0, 1000) + '...',  // 긴 텍스트는 잘라서 반환
+        text: text.substring(0, 1000) + '...',
         extractedInfo: completion.choices[0].message.content
       });
 
     } catch (pdfError) {
-      console.error('PDF processing error:', pdfError);
+      console.error('PDF parsing error:', pdfError);
       return res.status(500).json({ 
         error: 'PDF processing failed',
-        details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF processing error',
-        name: req.file.originalname
+        details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF processing error'
       });
     }
 
