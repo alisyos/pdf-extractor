@@ -63,34 +63,37 @@ const App: React.FC = () => {
     };
   };
 
+  // 733번째 줄과 796번째 줄의 unknown 타입 처리를 위한 함수들
+  const safeStringify = (data: unknown): string => {
+    if (data === null || data === undefined) {
+      return '';
+    }
+    try {
+      return typeof data === 'string' ? data : JSON.stringify(data);
+    } catch {
+      return '';
+    }
+  };
+
   // 다운로드 핸들러 함수들
   const handleTemplateDownload = () => {
     if (selectedTemplate) {
-      const content = JSON.stringify(selectedTemplate);
-      downloadFile(content, 'template.txt');
+      downloadFile(safeStringify(selectedTemplate), 'template.txt');
     }
   };
 
   const handleResultDownload = () => {
     if (extractedResult) {
-      const content = JSON.stringify(extractedResult);
-      downloadFile(content, 'result.txt');
+      downloadFile(safeStringify(extractedResult), 'result.txt');
     }
   };
 
-  // 735번째 줄과 798번째 줄의 unknown 타입 처리
-  const handleTemplateAction = (data: any) => {
-    if (data && typeof data === 'object') {
-      const content = JSON.stringify(data);
-      downloadFile(content, 'template.txt');
-    }
+  const handleTemplateAction = (data: unknown) => {
+    downloadFile(safeStringify(data), 'template.txt');
   };
 
-  const handleResultAction = (data: any) => {
-    if (data && typeof data === 'object') {
-      const content = JSON.stringify(data);
-      downloadFile(content, 'result.txt');
-    }
+  const handleResultAction = (data: unknown) => {
+    downloadFile(safeStringify(data), 'result.txt');
   };
 
   // 템플릿 로드
