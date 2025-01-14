@@ -45,6 +45,8 @@ const App: React.FC = () => {
   const [fields, setFields] = useState<ExtractionField[]>([
     { title: '', description: '' }
   ])
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null)
+  const [extractedResult, setExtractedResult] = useState<Result | null>(null)
 
   // 유틸리티 함수들
   const downloadFile = (content: string) => {
@@ -63,19 +65,23 @@ const App: React.FC = () => {
 
   // 다운로드 핸들러 함수들
   const handleTemplateDownload = () => {
-    const content = typeof template === 'string' 
-      ? template 
-      : JSON.stringify(template || '');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    saveAs(blob, 'template.txt');
+    if (selectedTemplate) {
+      const content = typeof selectedTemplate === 'string' 
+        ? selectedTemplate 
+        : JSON.stringify(selectedTemplate || '');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      saveAs(blob, 'template.txt');
+    }
   };
 
   const handleResultDownload = () => {
-    const content = typeof result === 'string' 
-      ? result 
-      : JSON.stringify(result || '');
-    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-    saveAs(blob, 'result.txt');
+    if (extractedResult) {
+      const content = typeof extractedResult === 'string' 
+        ? extractedResult 
+        : JSON.stringify(extractedResult || '');
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      saveAs(blob, 'result.txt');
+    }
   };
 
   // 703번째 줄과 766번째 줄의 unknown 타입 처리
