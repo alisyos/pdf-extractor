@@ -8,6 +8,18 @@ import pdfParse from 'pdf-parse'
 import OpenAI from 'openai'
 import dotenv from 'dotenv'
 
+// 환경변수 설정
+dotenv.config();
+
+// OpenAI 설정 확인
+if (!process.env.OPENAI_API_KEY) {
+  console.error('OPENAI_API_KEY is not set in environment variables');
+}
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY
+});
+
 // 타입 정의
 interface FileRequest extends Request {
   file?: Express.Multer.File;
@@ -15,12 +27,6 @@ interface FileRequest extends Request {
     fields: string;
   };
 }
-
-// OpenAI 설정
-dotenv.config();
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -34,180 +40,65 @@ app.use(express.static(path.join(__dirname, '../../client/dist')));
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// PDF 텍스트 추출 함수
-async function extractTextFromPDF(buffer: Buffer): Promise<string> {
-  try {
-    const data = await pdfParse(buffer)
-    return data.text
-  } catch (error) {
-    console.error('PDF 파싱 에러:', error)
-    throw new Error('PDF 파일 처리 중 오류가 발생했습니다.')
-  }
-}
-
-interface Field {
-  title: string;
-  description: string;
-}
-
-// OpenAI API 호출 함수 수정
-async function callOpenAI(text: string, fields: Field[]): Promise<string> {
-  try {
-    const fieldsDescription = fields
-      .map(field => `${field.title}: ${field.description}`)
-      .join('\n');
-
-    const fieldNames = fields.map(field => field.title);
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4",
-      messages: [
-        {
-          role: "system",
-          content: `PDF에서 정보를 추출하여 정확히 다음 형식의 JSON으로 반환해주세요:
-{
-${fieldNames.map(name => `  "${name}": [`).join('\n')}
-    "첫 번째 항목의 내용",
-    "두 번째 항목의 내용",
-    ...
-  ]
-}
-
-주의사항:
-1. 모든 필드는 배열이어야 합니다
-2. 모든 배열의 길이는 동일해야 합니다
-3. 같은 인덱스는 같은 문제/항목을 나타냅니다
-4. 정보를 찾을 수 없는 경우 "정보 없음"으로 표시해주세요`
-        },
-        {
-          role: "user",
-          content: `다음 텍스트에서 요청한 정보를 추출해주세요.
-
-추출할 항목:
-${fieldsDescription}
-
-텍스트:
-${text}`
-        }
-      ],
-      temperature: 0.3
-    });
-
-    const result = completion.choices[0].message.content;
-    if (!result) {
-      throw new Error('OpenAI API가 응답을 반환하지 않았습니다.');
-    }
-
-    try {
-      const parsedJson = JSON.parse(result);
-      
-      // 모든 필드가 있는지 확인하고, 없는 경우 추가
-      fields.forEach(field => {
-        if (!(field.title in parsedJson)) {
-          parsedJson[field.title] = ["정보 없음"];
-        }
-      });
-
-      // 배열 길이 통일
-      const maxLength = Math.max(
-        ...Object.values(parsedJson)
-          .filter(Array.isArray)
-          .map(arr => arr.length)
-      );
-
-      // 모든 배열의 길이를 maxLength로 맞춤
-      Object.keys(parsedJson).forEach(key => {
-        if (!Array.isArray(parsedJson[key])) {
-          parsedJson[key] = ["정보 없음"];
-        }
-        while (parsedJson[key].length < maxLength) {
-          parsedJson[key].push("정보 없음");
-        }
-      });
-
-      return JSON.stringify(parsedJson);
-    } catch (error) {
-      console.error('JSON 파싱 에러:', error);
-      // 기본 응답 생성
-      const defaultResponse = Object.fromEntries(
-        fields.map(field => [field.title, ["정보 없음"]])
-      );
-      return JSON.stringify(defaultResponse);
-    }
-  } catch (error) {
-    console.error('OpenAI API 에러:', error);
-    throw new Error('OpenAI API 호출 중 오류가 발생했습니다.');
-  }
-}
-
-// API 엔드포인트 수정
+// API 엔드포인트
 app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Response) => {
   try {
+    console.log('Received file upload request');
+    
     if (!req.file) {
+      console.error('No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    let fields: Field[]
-    try {
-      fields = JSON.parse(req.body.fields)
-      console.log('받은 필드 데이터:', fields)
-    } catch (error) {
-      res.status(400).json({ error: '필드 데이터 형식이 잘못되었습니다.' })
-      return
-    }
+    console.log('File received:', req.file.originalname);
 
-    if (!Array.isArray(fields) || fields.length === 0) {
-      res.status(400).json({ error: '추출 항목이 필요합니다.' })
-      return
-    }
-
-    // fields 유효성 검사
-    if (!fields.every(field => field.title && field.description)) {
-      res.status(400).json({ error: '모든 추출 항목에는 제목과 설명이 필요합니다.' })
-      return
-    }
-
-    console.log('파일 처리 시작:', req.file.originalname)
-    console.log('추출 항목:', fields)
-
-    // PDF 텍스트 추출
-    const pdfText = await extractTextFromPDF(req.file.buffer)
-    console.log('PDF 텍스트 추출 완료:', pdfText.length, '자')
-
-    // 텍스트 길이 제한
-    const maxLength = 4000
-    const truncatedText = pdfText.length > maxLength 
-      ? pdfText.substring(0, maxLength) + "..."
-      : pdfText
+    // PDF 파싱
+    const pdfBuffer = req.file.buffer;
+    console.log('Parsing PDF...');
+    
+    const pdfData = await pdfParse(pdfBuffer);
+    console.log('PDF parsed successfully');
 
     // OpenAI API 호출
-    console.log('OpenAI API 호출 시작')
-    const result = await callOpenAI(truncatedText, fields)
-    console.log('OpenAI API 호출 완료')
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key is not set');
+      return res.status(500).json({ error: 'OpenAI API key is not configured' });
+    }
 
-    res.json({ result })
+    console.log('Calling OpenAI API...');
+    const completion = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "You are a helpful assistant that extracts key information from documents."
+        },
+        {
+          role: "user",
+          content: `Please extract key information from this text: ${pdfData.text}`
+        }
+      ]
+    });
+
+    console.log('OpenAI API call successful');
+    const extractedInfo = completion.choices[0].message.content;
+
+    res.json({ 
+      success: true,
+      text: pdfData.text,
+      extractedInfo: extractedInfo
+    });
+
   } catch (error) {
-    console.error('Error:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error('Error processing request:', error);
+    res.status(500).json({ 
+      error: `Error processing ${req?.file?.originalname || 'file'}`,
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
   }
-})
-
-// 에러 핸들러
-app.use((err: Error, req: Request, res: Response) => {
-  console.error(err)
-  res.status(500).json({ 
-    error: '서버 에러가 발생했습니다.',
-    details: err.message
-  })
-})
-
-// 기본 라우트
-app.get('/', (req: Request, res: Response) => {
-  res.json({ message: 'PDF Extractor API is running' })
-})
+});
 
 // 서버 시작
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`)
-  console.log('OpenAI API Key:', process.env.OPENAI_API_KEY ? '설정됨' : '설정되지 않음')
-}) 
+  console.log(`Server is running on port ${port}`);
+}); 
