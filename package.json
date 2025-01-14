@@ -1,18 +1,9 @@
 {
   "name": "pdf-extractor",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
   "scripts": {
-    "install-client": "cd client && npm install",
-    "install-server": "cd server && npm install",
-    "build-client": "cd client && npm run build",
-    "build-server": "cd server && npm run build",
     "start": "cd server && npm start",
-    "build": "npm run install-client && npm run install-server && npm run build-client && npm run build-server",
+    "build": "cd server && npm install && npm run build",
     "dev": "cd server && npm run dev"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC"
+  }
 }
