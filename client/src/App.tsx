@@ -7,6 +7,7 @@ interface Template {
   id: string
   name: string
   fields: ExtractionField[]
+  content: string
 }
 
 interface ExtractedData {
@@ -26,13 +27,14 @@ interface ExtractionField {
   description: string
 }
 
-interface Template {
-  content: string;
-}
-
 interface Result {
   content: string;
 }
+
+const downloadFile = (content: string) => {
+  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+  saveAs(blob, 'download.txt');
+};
 
 const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([])
@@ -87,7 +89,8 @@ const App: React.FC = () => {
     const newTemplate: Template = {
       id: Date.now().toString(),
       name: templateName,
-      fields: fields.filter(f => f.title && f.description)
+      fields: fields.filter(f => f.title && f.description),
+      content: JSON.stringify({ name: templateName, fields: fields.filter(f => f.title && f.description) }, null, 2)
     }
 
     const updatedTemplates = [...templates, newTemplate]
@@ -372,12 +375,16 @@ const App: React.FC = () => {
     </div>
   )
 
-  const handleDownloadTemplate = (template: Template) => {
-    downloadFile(template.content);
+  const handleTemplateDownload = (data: any) => {
+    if (typeof data === 'object' && data.content) {
+      handleDownloadTemplate(data as Template);
+    }
   };
 
-  const handleDownloadResult = (result: Result) => {
-    downloadFile(result.content);
+  const handleResultDownload = (data: any) => {
+    if (typeof data === 'object' && data.content) {
+      handleDownloadResult(data as Result);
+    }
   };
 
   return (
