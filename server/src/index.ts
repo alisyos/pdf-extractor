@@ -42,7 +42,6 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
   console.log('Time:', new Date().toISOString());
   
   try {
-    // 파일 체크
     if (!req.file) {
       console.error('No file uploaded');
       return res.status(400).json({ 
@@ -51,28 +50,34 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
       });
     }
 
-    console.log('File received:', {
+    console.log('File details:', {
       name: req.file.originalname,
       size: req.file.size,
-      type: req.file.mimetype
+      type: req.file.mimetype,
+      buffer: req.file.buffer ? 'Buffer exists' : 'No buffer'
     });
 
-    // PDF 파싱
     try {
+      // PDF 파싱 시도
       console.log('Starting PDF parsing...');
       const pdfBuffer = req.file.buffer;
+      
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('PDF buffer is empty');
+      }
+
       const pdfData = await pdfParse(pdfBuffer);
-      console.log('PDF parsed successfully, text length:', pdfData.text.length);
+      console.log('PDF parsing result:', {
+        pageCount: pdfData.numpages,
+        textLength: pdfData.text?.length || 0,
+        info: pdfData.info
+      });
 
       if (!pdfData.text || pdfData.text.length === 0) {
-        throw new Error('PDF text is empty');
+        throw new Error('Parsed PDF text is empty');
       }
 
       // OpenAI API 호출
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error('OpenAI API key is not configured');
-      }
-
       console.log('Calling OpenAI API...');
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
@@ -85,22 +90,25 @@ app.post('/api/extract', upload.single('file'), async (req, res) => {
             role: "user",
             content: `Please extract key information from this text: ${pdfData.text}`
           }
-        ]
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
       });
 
-      console.log('OpenAI API call successful');
+      console.log('OpenAI API response received');
 
       return res.json({ 
         success: true,
-        text: pdfData.text,
+        text: pdfData.text.substring(0, 1000) + '...',  // 긴 텍스트는 잘라서 반환
         extractedInfo: completion.choices[0].message.content
       });
 
     } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
+      console.error('PDF processing error:', pdfError);
       return res.status(500).json({ 
         error: 'PDF processing failed',
-        details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF processing error'
+        details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF processing error',
+        name: req.file.originalname
       });
     }
 

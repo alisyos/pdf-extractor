@@ -480,15 +480,6 @@ const App: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      // 먼저 서버 상태 확인
-      try {
-        const statusResponse = await fetch(`${window.location.origin}/api/status`);
-        console.log('Server status:', await statusResponse.json());
-      } catch (statusError) {
-        console.error('Server status check failed:', statusError);
-      }
-
-      // 파일 업로드 시도
       console.log('Uploading file:', file.name);
       const response = await fetch(API_URL, {
         method: 'POST',
@@ -502,16 +493,16 @@ const App: React.FC = () => {
         throw new Error(
           data.details || 
           data.error || 
-          `파일 처리 실패 (${response.status})`
+          `파일 처리 실패 (${response.status}): ${JSON.stringify(data)}`
         );
       }
 
       setResults(prev => ({
         ...prev,
-        [file.name]: data.message || '파일이 업로드되었습니다.'
+        [file.name]: data.extractedInfo || '추출된 정보가 없습니다.'
       }));
     } catch (error: any) {
-      console.error('Upload error:', error);
+      console.error('Upload error details:', error);
       setResults(prev => ({
         ...prev,
         [file.name]: `오류: ${error.message || '알 수 없는 오류가 발생했습니다.'}`
