@@ -63,37 +63,34 @@ const App: React.FC = () => {
     };
   };
 
-  // 733번째 줄과 796번째 줄의 unknown 타입 처리를 위한 함수들
-  const safeStringify = (data: unknown): string => {
-    if (data === null || data === undefined) {
-      return '';
-    }
-    try {
-      return typeof data === 'string' ? data : JSON.stringify(data);
-    } catch {
-      return '';
-    }
-  };
-
   // 다운로드 핸들러 함수들
   const handleTemplateDownload = () => {
     if (selectedTemplate) {
-      downloadFile(safeStringify(selectedTemplate), 'template.txt');
+      const content = JSON.stringify(selectedTemplate);
+      downloadFile(content, 'template.txt');
     }
   };
 
   const handleResultDownload = () => {
     if (extractedResult) {
-      downloadFile(safeStringify(extractedResult), 'result.txt');
+      const content = JSON.stringify(extractedResult);
+      downloadFile(content, 'result.txt');
     }
   };
 
-  const handleTemplateAction = (data: unknown) => {
-    downloadFile(safeStringify(data), 'template.txt');
+  // 735번째 줄과 798번째 줄의 unknown 타입 처리
+  const handleTemplateAction = (data: any) => {
+    if (data && typeof data === 'object') {
+      const content = JSON.stringify(data);
+      downloadFile(content, 'template.txt');
+    }
   };
 
-  const handleResultAction = (data: unknown) => {
-    downloadFile(safeStringify(data), 'result.txt');
+  const handleResultAction = (data: any) => {
+    if (data && typeof data === 'object') {
+      const content = JSON.stringify(data);
+      downloadFile(content, 'result.txt');
+    }
   };
 
   // 템플릿 로드
@@ -420,6 +417,60 @@ const App: React.FC = () => {
     </div>
   )
 
+  const safeStringify = (obj: any): string => {
+    if (typeof obj === 'string') {
+      return obj;
+    }
+    return JSON.stringify(obj);
+  };
+
+  const handleExcelDownload = () => {
+    try {
+      const wb = XLSX.utils.book_new();
+
+      Object.entries(results).forEach(([fileName, result]) => {
+        if (result) {
+          const stringResult = safeStringify(result);
+          const jsonData = JSON.parse(stringResult);
+
+          // 데이터 구조 변환: 배열을 행으로 변환
+          const rows = [];
+          const keys = Object.keys(jsonData);
+          const numRows = jsonData[keys[0]]?.length || 0;
+
+          // 각 행의 데이터 생성
+          for (let i = 0; i < numRows; i++) {
+            const row = {};
+            keys.forEach(key => {
+              row[key] = jsonData[key][i] || "정보 없음";
+            });
+            rows.push(row);
+          }
+
+          const ws = XLSX.utils.json_to_sheet(rows);
+
+          // 열 너비 자동 조정
+          const colWidths = keys.map(key => ({
+            wch: Math.max(
+              key.length,
+              ...rows.map(row => String(row[key]).length)
+            )
+          }));
+          ws['!cols'] = colWidths;
+
+          XLSX.utils.book_append_sheet(wb, ws, fileName.slice(0, 31));
+        }
+      });
+
+      const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      saveAs(data, 'extracted_data.xlsx');
+    } catch (error) {
+      console.error('엑셀 다운로드 에러:', error);
+      alert('엑셀 파일 생성 중 오류가 발생했습니다.');
+    }
+  };
+
   return (
     <div style={{
       padding: '20px',
@@ -727,53 +778,7 @@ const App: React.FC = () => {
               fontSize: '1.5rem'
             }}>추출된 데이터</h2>
             <button
-              onClick={() => {
-                try {
-                  const wb = XLSX.utils.book_new();
-                  
-                  Object.entries(results).forEach(([fileName, result]) => {
-                    if (result) {
-                      const jsonData = JSON.parse(result);
-                      
-                      // 데이터 구조 변환: 배열을 행으로 변환
-                      const rows = [];
-                      const keys = Object.keys(jsonData);
-                      const numRows = jsonData[keys[0]]?.length || 0;
-                      
-                      // 각 행의 데이터 생성
-                      for (let i = 0; i < numRows; i++) {
-                        const row = {};
-                        keys.forEach(key => {
-                          row[key] = jsonData[key][i] || "정보 없음";
-                        });
-                        rows.push(row);
-                      }
-
-                      console.log('엑셀 변환 데이터:', rows); // 디버깅용
-                      
-                      const ws = XLSX.utils.json_to_sheet(rows);
-                      
-                      // 열 너비 자동 조정
-                      const colWidths = keys.map(key => ({
-                        wch: Math.max(
-                          key.length,
-                          ...rows.map(row => String(row[key]).length)
-                        )
-                      }));
-                      ws['!cols'] = colWidths;
-
-                      XLSX.utils.book_append_sheet(wb, ws, fileName.slice(0, 31));
-                    }
-                  });
-                  
-                  const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
-                  const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-                  saveAs(data, 'extracted_data.xlsx');
-                } catch (error) {
-                  console.error('엑셀 다운로드 에러:', error);
-                  alert('엑셀 파일 생성 중 오류가 발생했습니다.');
-                }
-              }}
+              onClick={handleExcelDownload}
               style={{
                 padding: '8px 16px',
                 backgroundColor: '#28a745',
