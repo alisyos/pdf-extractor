@@ -62,16 +62,20 @@ const App: React.FC = () => {
   };
 
   // 다운로드 핸들러 함수들
-  const handleTemplateDownload = (template: Template) => {
-    if (template && template.content) {
-      downloadFile(template.content);
-    }
+  const handleTemplateDownload = () => {
+    const content = typeof template === 'string' 
+      ? template 
+      : JSON.stringify(template || '');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    saveAs(blob, 'template.txt');
   };
 
-  const handleResultDownload = (result: Result) => {
-    if (result && result.content) {
-      downloadFile(result.content);
-    }
+  const handleResultDownload = () => {
+    const content = typeof result === 'string' 
+      ? result 
+      : JSON.stringify(result || '');
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    saveAs(blob, 'result.txt');
   };
 
   // 703번째 줄과 766번째 줄의 unknown 타입 처리
