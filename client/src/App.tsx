@@ -31,11 +31,6 @@ interface Result {
   content: string;
 }
 
-const downloadFile = (content: string) => {
-  const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-  saveAs(blob, 'download.txt');
-};
-
 const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([])
   const [description, setDescription] = useState('')
@@ -50,6 +45,45 @@ const App: React.FC = () => {
   const [fields, setFields] = useState<ExtractionField[]>([
     { title: '', description: '' }
   ])
+
+  // 유틸리티 함수들
+  const downloadFile = (content: string) => {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    saveAs(blob, 'download.txt');
+  };
+
+  const createTemplate = (id: string, name: string, fields: Field[]): Template => {
+    return {
+      id,
+      name,
+      fields,
+      content: JSON.stringify({ name, fields }, null, 2)
+    };
+  };
+
+  // 다운로드 핸들러 함수들
+  const handleTemplateDownload = (template: Template) => {
+    if (template && template.content) {
+      downloadFile(template.content);
+    }
+  };
+
+  const handleResultDownload = (result: Result) => {
+    if (result && result.content) {
+      downloadFile(result.content);
+    }
+  };
+
+  // 703번째 줄과 766번째 줄의 unknown 타입 처리
+  const handleDownload = (data: unknown, type: 'template' | 'result') => {
+    if (typeof data === 'object' && data !== null) {
+      if (type === 'template' && 'content' in data) {
+        handleTemplateDownload(data as Template);
+      } else if (type === 'result' && 'content' in data) {
+        handleResultDownload(data as Result);
+      }
+    }
+  };
 
   // 템플릿 로드
   useEffect(() => {
@@ -374,36 +408,6 @@ const App: React.FC = () => {
       </div>
     </div>
   )
-
-  const handleTemplateDownload = (template: Template) => {
-    if (template && template.content) {
-      downloadFile(template.content);
-    }
-  };
-
-  const handleResultDownload = (result: Result) => {
-    if (result && result.content) {
-      downloadFile(result.content);
-    }
-  };
-
-  const handleDownload = (data: any) => {
-    if (data && typeof data === 'object') {
-      if ('content' in data && typeof data.content === 'string') {
-        downloadFile(data.content);
-      } else if (typeof data === 'string') {
-        downloadFile(data);
-      }
-    }
-  };
-
-  const downloadTemplate = (template: any) => {
-    handleDownload(template);
-  };
-
-  const downloadResult = (result: any) => {
-    handleDownload(result);
-  };
 
   return (
     <div style={{
