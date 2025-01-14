@@ -2,6 +2,7 @@ import express from 'express'
 import type { Request, Response } from 'express'
 import cors from 'cors'
 import multer from 'multer'
+import type { Multer } from 'multer'
 import path from 'path'
 import fs from 'fs'
 import pdfParse from 'pdf-parse'
@@ -9,21 +10,12 @@ import OpenAI from 'openai'
 import dotenv from 'dotenv'
 
 // 타입 정의
-interface MulterFile {
-  fieldname: string;
-  originalname: string;
-  encoding: string;
-  mimetype: string;
-  buffer: Buffer;
-  size: number;
-}
-
-interface ExtractRequest extends Request {
-  file?: MulterFile;
+type ExtractRequest = Request & {
+  file?: multer.File;
   body: {
     fields: string;
   };
-}
+};
 
 // OpenAI 설정
 dotenv.config();
@@ -152,12 +144,10 @@ ${text}`
 // API 엔드포인트 수정
 app.post('/api/extract', upload.single('file'), async (req: ExtractRequest, res: Response) => {
   try {
-    // 입력 검증
     if (!req.file) {
-      res.status(400).json({ error: 'PDF 파일이 필요합니다.' })
-      return
+      return res.status(400).json({ error: 'No file uploaded' });
     }
-    
+
     let fields: Field[]
     try {
       fields = JSON.parse(req.body.fields)
@@ -198,7 +188,8 @@ app.post('/api/extract', upload.single('file'), async (req: ExtractRequest, res:
 
     res.json({ result })
   } catch (error) {
-    console.error('서버 에러:', error)
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 })
 
