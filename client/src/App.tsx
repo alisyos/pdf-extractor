@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import * as XLSX from 'xlsx'
 import { saveAs } from 'file-saver'
-import { Field, HistoryItem, ExtractedData } from './types'
+import { Field } from './types'
 
 interface Template {
   id: string
@@ -10,10 +10,7 @@ interface Template {
 }
 
 interface ExtractedData {
-  result: string | null
-  timestamp: number
-  description: string
-  fileName: string
+  [key: string]: string[];
 }
 
 interface HistoryItem {
