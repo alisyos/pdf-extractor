@@ -480,25 +480,32 @@ const App: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
       
+      console.log('Sending request to:', API_URL);
       const response = await fetch(API_URL, {
         method: 'POST',
         body: formData
       });
 
+      const data = await response.json();
+      console.log('Server response:', data);
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(
+          data.details || 
+          data.error || 
+          `${file.name} 처리 실패 (${response.status})`
+        );
       }
 
-      const data = await response.json();
       setResults(prev => ({
         ...prev,
-        [file.name]: data
+        [file.name]: data.extractedInfo || '추출된 정보가 없습니다.'
       }));
     } catch (error: any) {
-      console.error(`Error processing ${file.name}:`, error);
+      console.error(`Error details:`, error);
       setResults(prev => ({
         ...prev,
-        [file.name]: `Error: ${error.message}`
+        [file.name]: `오류: ${error.message || '알 수 없는 오류가 발생했습니다.'}`
       }));
     } finally {
       setIsLoading(false);

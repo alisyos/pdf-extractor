@@ -49,7 +49,20 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
     
     if (!req.file) {
       console.error('No file uploaded');
-      return res.status(400).json({ error: 'No file uploaded' });
+      return res.status(400).json({ 
+        success: false,
+        error: 'No file uploaded',
+        details: '파일이 업로드되지 않았습니다.'
+      });
+    }
+
+    if (!process.env.OPENAI_API_KEY) {
+      console.error('OpenAI API key is missing');
+      return res.status(500).json({
+        success: false,
+        error: 'OpenAI API configuration error',
+        details: 'OpenAI API 키가 설정되지 않았습니다.'
+      });
     }
 
     console.log('File details:', {
@@ -69,8 +82,11 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
       return res.status(500).json({ 
+        success: false,
         error: 'PDF parsing failed',
-        details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF error'
+        details: pdfError instanceof Error ? 
+          `PDF 파싱 오류: ${pdfError.message}` : 
+          'PDF 파일을 읽는 중 오류가 발생했습니다.'
       });
     }
 
@@ -99,22 +115,27 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
 
       return res.json({ 
         success: true,
-        text: pdfText,
         extractedInfo: extractedInfo
       });
     } catch (openaiError) {
       console.error('OpenAI API error:', openaiError);
       return res.status(500).json({ 
+        success: false,
         error: 'OpenAI API call failed',
-        details: openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error'
+        details: openaiError instanceof Error ? 
+          `OpenAI API 오류: ${openaiError.message}` : 
+          'OpenAI API 호출 중 오류가 발생했습니다.'
       });
     }
 
   } catch (error) {
     console.error('General error:', error);
     return res.status(500).json({ 
-      error: `Error processing ${req?.file?.originalname || 'file'}`,
-      details: error instanceof Error ? error.message : 'Unknown error'
+      success: false,
+      error: 'Server error',
+      details: error instanceof Error ? 
+        `서버 오류: ${error.message}` : 
+        '서버에서 알 수 없는 오류가 발생했습니다.'
     });
   }
 });
