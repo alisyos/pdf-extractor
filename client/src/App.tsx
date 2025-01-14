@@ -387,14 +387,22 @@ const App: React.FC = () => {
     }
   };
 
-  const handleDownload = (data: unknown, type: 'template' | 'result') => {
-    if (typeof data === 'object' && data !== null) {
-      if (type === 'template' && 'content' in data) {
-        handleTemplateDownload(data as Template);
-      } else if (type === 'result' && 'content' in data) {
-        handleResultDownload(data as Result);
+  const handleDownload = (data: any) => {
+    if (data && typeof data === 'object') {
+      if ('content' in data && typeof data.content === 'string') {
+        downloadFile(data.content);
+      } else if (typeof data === 'string') {
+        downloadFile(data);
       }
     }
+  };
+
+  const downloadTemplate = (template: any) => {
+    handleDownload(template);
+  };
+
+  const downloadResult = (result: any) => {
+    handleDownload(result);
   };
 
   return (
