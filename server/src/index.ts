@@ -29,7 +29,6 @@ interface FileRequest extends Request {
 }
 
 const app = express();
-const port = process.env.PORT || 3001;
 
 // 미들웨어 설정
 app.use(cors());
@@ -40,15 +39,32 @@ app.use(express.static(path.join(__dirname, '../../client/dist')));
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
+// 로깅 유틸리티
+const logError = (message: string, error: any) => {
+  console.error('=== ERROR LOG ===');
+  console.error('Message:', message);
+  console.error('Error:', error);
+  if (error instanceof Error) {
+    console.error('Stack:', error.stack);
+  }
+  console.error('================');
+};
+
 // API 엔드포인트
 app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Response) => {
+  const startTime = Date.now();
+  console.log('\n=== New Request Started ===');
+  console.log('Time:', new Date().toISOString());
+  
   try {
-    console.log('=== Starting file processing ===');
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('OpenAI API Key exists:', !!process.env.OPENAI_API_KEY);
+    // 환경 체크
+    console.log('Environment Check:');
+    console.log('- NODE_ENV:', process.env.NODE_ENV);
+    console.log('- OPENAI_API_KEY exists:', !!process.env.OPENAI_API_KEY);
+    console.log('- Memory usage:', process.memoryUsage());
     
     if (!req.file) {
-      console.error('No file uploaded');
+      logError('No file uploaded', new Error('File missing in request'));
       return res.status(400).json({ 
         success: false,
         error: 'No file uploaded',
@@ -56,19 +72,13 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
       });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('OpenAI API key is missing');
-      return res.status(500).json({
-        success: false,
-        error: 'OpenAI API configuration error',
-        details: 'OpenAI API 키가 설정되지 않았습니다.'
-      });
-    }
-
-    console.log('File details:', {
+    // 파일 정보 로깅
+    console.log('File Information:');
+    console.log({
       name: req.file.originalname,
       size: req.file.size,
-      mimetype: req.file.mimetype
+      mimetype: req.file.mimetype,
+      encoding: req.file.encoding
     });
 
     // PDF 파싱
@@ -76,71 +86,96 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
     try {
       console.log('Starting PDF parsing...');
       const pdfBuffer = req.file.buffer;
+      
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        throw new Error('PDF buffer is empty');
+      }
+      
       const pdfData = await pdfParse(pdfBuffer);
       pdfText = pdfData.text;
-      console.log('PDF parsed successfully. Text length:', pdfText.length);
+      
+      if (!pdfText || pdfText.length === 0) {
+        throw new Error('Parsed PDF text is empty');
+      }
+      
+      console.log('PDF parsed successfully:');
+      console.log('- Text length:', pdfText.length);
+      console.log('- First 100 chars:', pdfText.substring(0, 100));
+      
     } catch (pdfError) {
-      console.error('PDF parsing error:', pdfError);
+      logError('PDF parsing failed', pdfError);
       return res.status(500).json({ 
         success: false,
         error: 'PDF parsing failed',
-        details: pdfError instanceof Error ? 
-          `PDF 파싱 오류: ${pdfError.message}` : 
-          'PDF 파일을 읽는 중 오류가 발생했습니다.'
+        details: `PDF 파싱 오류: ${pdfError instanceof Error ? pdfError.message : '알 수 없는 오류'}`
       });
     }
 
     // OpenAI API 호출
     try {
-      console.log('Starting OpenAI API call...');
+      console.log('Preparing OpenAI API call...');
+      
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OpenAI API key is not configured');
+      }
+
+      const messages = [
+        {
+          role: "system",
+          content: "You are a helpful assistant that extracts key information from documents."
+        },
+        {
+          role: "user",
+          content: `Please extract key information from this text: ${pdfText}`
+        }
+      ];
+
+      console.log('Calling OpenAI API with message length:', messages[1].content.length);
+      
       const completion = await openai.chat.completions.create({
         model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content: "You are a helpful assistant that extracts key information from documents."
-          },
-          {
-            role: "user",
-            content: `Please extract key information from this text: ${pdfText}`
-          }
-        ],
+        messages,
         temperature: 0.7,
         max_tokens: 1000
       });
-      console.log('OpenAI API call successful');
 
       const extractedInfo = completion.choices[0].message.content;
-      console.log('Extracted info length:', extractedInfo.length);
+      console.log('OpenAI API call successful:');
+      console.log('- Response length:', extractedInfo.length);
+      console.log('- First 100 chars:', extractedInfo.substring(0, 100));
+
+      const processingTime = Date.now() - startTime;
+      console.log(`Total processing time: ${processingTime}ms`);
 
       return res.json({ 
         success: true,
-        extractedInfo: extractedInfo
+        extractedInfo,
+        processingTime
       });
+      
     } catch (openaiError) {
-      console.error('OpenAI API error:', openaiError);
+      logError('OpenAI API call failed', openaiError);
       return res.status(500).json({ 
         success: false,
         error: 'OpenAI API call failed',
-        details: openaiError instanceof Error ? 
-          `OpenAI API 오류: ${openaiError.message}` : 
-          'OpenAI API 호출 중 오류가 발생했습니다.'
+        details: `OpenAI API 오류: ${openaiError instanceof Error ? openaiError.message : '알 수 없는 오류'}`
       });
     }
 
   } catch (error) {
-    console.error('General error:', error);
+    logError('Unexpected error occurred', error);
     return res.status(500).json({ 
       success: false,
       error: 'Server error',
-      details: error instanceof Error ? 
-        `서버 오류: ${error.message}` : 
-        '서버에서 알 수 없는 오류가 발생했습니다.'
+      details: `서버 오류: ${error instanceof Error ? error.message : '알 수 없는 오류'}`
     });
   }
 });
 
 // 서버 시작
+const port = process.env.PORT || 3001;
 app.listen(port, () => {
-  console.log(`Server is running on port ${port}`);
+  console.log(`Server started at ${new Date().toISOString()}`);
+  console.log(`Running on port ${port}`);
+  console.log('Environment:', process.env.NODE_ENV);
 }); 
