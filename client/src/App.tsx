@@ -26,6 +26,14 @@ interface ExtractionField {
   description: string
 }
 
+interface Template {
+  content: string;
+}
+
+interface Result {
+  content: string;
+}
+
 const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([])
   const [description, setDescription] = useState('')
@@ -363,6 +371,14 @@ const App: React.FC = () => {
       </div>
     </div>
   )
+
+  const handleDownloadTemplate = (template: Template) => {
+    downloadFile(template.content);
+  };
+
+  const handleDownloadResult = (result: Result) => {
+    downloadFile(result.content);
+  };
 
   return (
     <div style={{
