@@ -59,11 +59,13 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
     });
 
     // PDF 파싱
+    let pdfText = '';
     try {
       console.log('Starting PDF parsing...');
       const pdfBuffer = req.file.buffer;
       const pdfData = await pdfParse(pdfBuffer);
-      console.log('PDF parsed successfully. Text length:', pdfData.text.length);
+      pdfText = pdfData.text;
+      console.log('PDF parsed successfully. Text length:', pdfText.length);
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
       return res.status(500).json({ 
@@ -84,16 +86,21 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
           },
           {
             role: "user",
-            content: `Please extract key information from this text: ${pdfData.text}`
+            content: `Please extract key information from this text: ${pdfText}`
           }
-        ]
+        ],
+        temperature: 0.7,
+        max_tokens: 1000
       });
       console.log('OpenAI API call successful');
 
-      res.json({ 
+      const extractedInfo = completion.choices[0].message.content;
+      console.log('Extracted info length:', extractedInfo.length);
+
+      return res.json({ 
         success: true,
-        text: pdfData.text,
-        extractedInfo: completion.choices[0].message.content
+        text: pdfText,
+        extractedInfo: extractedInfo
       });
     } catch (openaiError) {
       console.error('OpenAI API error:', openaiError);
@@ -105,7 +112,7 @@ app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Re
 
   } catch (error) {
     console.error('General error:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: `Error processing ${req?.file?.originalname || 'file'}`,
       details: error instanceof Error ? error.message : 'Unknown error'
     });
