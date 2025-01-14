@@ -31,8 +31,8 @@ interface Result {
   content: string;
 }
 
-// API URL을 상대 경로로 설정
-const API_URL = '/api/extract';
+// API URL을 현재 호스트 기반으로 설정
+const API_URL = `${window.location.origin}/api/extract`;
 
 const App: React.FC = () => {
   const [files, setFiles] = useState<File[]>([])
@@ -471,6 +471,37 @@ const App: React.FC = () => {
     } catch (error) {
       console.error('엑셀 다운로드 에러:', error);
       alert('엑셀 파일 생성 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      setIsLoading(true);
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await fetch(API_URL, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setResults(prev => ({
+        ...prev,
+        [file.name]: data
+      }));
+    } catch (error: any) {
+      console.error(`Error processing ${file.name}:`, error);
+      setResults(prev => ({
+        ...prev,
+        [file.name]: `Error: ${error.message}`
+      }));
+    } finally {
+      setIsLoading(false);
     }
   };
 
