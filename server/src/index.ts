@@ -43,54 +43,68 @@ const upload = multer({ storage: storage });
 // API 엔드포인트
 app.post('/api/extract', upload.single('file'), async (req: FileRequest, res: Response) => {
   try {
-    console.log('Received file upload request');
+    console.log('=== Starting file processing ===');
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('OpenAI API Key exists:', !!process.env.OPENAI_API_KEY);
     
     if (!req.file) {
       console.error('No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log('File received:', req.file.originalname);
+    console.log('File details:', {
+      name: req.file.originalname,
+      size: req.file.size,
+      mimetype: req.file.mimetype
+    });
 
     // PDF 파싱
-    const pdfBuffer = req.file.buffer;
-    console.log('Parsing PDF...');
-    
-    const pdfData = await pdfParse(pdfBuffer);
-    console.log('PDF parsed successfully');
-
-    // OpenAI API 호출
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('OpenAI API key is not set');
-      return res.status(500).json({ error: 'OpenAI API key is not configured' });
+    try {
+      console.log('Starting PDF parsing...');
+      const pdfBuffer = req.file.buffer;
+      const pdfData = await pdfParse(pdfBuffer);
+      console.log('PDF parsed successfully. Text length:', pdfData.text.length);
+    } catch (pdfError) {
+      console.error('PDF parsing error:', pdfError);
+      return res.status(500).json({ 
+        error: 'PDF parsing failed',
+        details: pdfError instanceof Error ? pdfError.message : 'Unknown PDF error'
+      });
     }
 
-    console.log('Calling OpenAI API...');
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: [
-        {
-          role: "system",
-          content: "You are a helpful assistant that extracts key information from documents."
-        },
-        {
-          role: "user",
-          content: `Please extract key information from this text: ${pdfData.text}`
-        }
-      ]
-    });
+    // OpenAI API 호출
+    try {
+      console.log('Starting OpenAI API call...');
+      const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [
+          {
+            role: "system",
+            content: "You are a helpful assistant that extracts key information from documents."
+          },
+          {
+            role: "user",
+            content: `Please extract key information from this text: ${pdfData.text}`
+          }
+        ]
+      });
+      console.log('OpenAI API call successful');
 
-    console.log('OpenAI API call successful');
-    const extractedInfo = completion.choices[0].message.content;
-
-    res.json({ 
-      success: true,
-      text: pdfData.text,
-      extractedInfo: extractedInfo
-    });
+      res.json({ 
+        success: true,
+        text: pdfData.text,
+        extractedInfo: completion.choices[0].message.content
+      });
+    } catch (openaiError) {
+      console.error('OpenAI API error:', openaiError);
+      return res.status(500).json({ 
+        error: 'OpenAI API call failed',
+        details: openaiError instanceof Error ? openaiError.message : 'Unknown OpenAI error'
+      });
+    }
 
   } catch (error) {
-    console.error('Error processing request:', error);
+    console.error('General error:', error);
     res.status(500).json({ 
       error: `Error processing ${req?.file?.originalname || 'file'}`,
       details: error instanceof Error ? error.message : 'Unknown error'
