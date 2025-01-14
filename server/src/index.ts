@@ -1,12 +1,14 @@
-import express, { Request, Response, NextFunction } from 'express'
+import express, { Request, Response } from 'express'
 import cors from 'cors'
 import multer from 'multer'
-import { config } from 'dotenv'
-import { OpenAI } from 'openai'
+import path from 'path'
+import fs from 'fs'
 import pdfParse from 'pdf-parse'
+import OpenAI from 'openai'
+import dotenv from 'dotenv'
 
 // 환경변수 설정
-config()
+dotenv.config()
 
 const app = express()
 const port = process.env.PORT || 3000
@@ -142,10 +144,13 @@ ${text}`
 // 타입 정의
 interface ExtractRequest extends Request {
   file?: Express.Multer.File
+  body: {
+    fields?: string
+  }
 }
 
 // API 엔드포인트 수정
-app.post('/api/extract', upload.single('file'), async (req: ExtractRequest, res: Response, next: NextFunction) => {
+app.post('/api/extract', upload.single('file'), async (req: ExtractRequest, res: Response) => {
   try {
     // 입력 검증
     if (!req.file) {
@@ -194,12 +199,11 @@ app.post('/api/extract', upload.single('file'), async (req: ExtractRequest, res:
     res.json({ result })
   } catch (error) {
     console.error('서버 에러:', error)
-    next(error)
   }
 })
 
 // 에러 핸들러
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, req: Request, res: Response) => {
   console.error(err)
   res.status(500).json({ 
     error: '서버 에러가 발생했습니다.',
